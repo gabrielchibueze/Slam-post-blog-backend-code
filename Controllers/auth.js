@@ -43,15 +43,20 @@ exports.createUser = (req, res, next) => {
 exports.userLogin = (req, res, next) => {
     const password = req.body.password;
     const email = req.body.email;
-
     const hashedPassword = bcryptjs.hash(password, 12)
 
     User.findOne({ email: email }).then(user => {
-        if (user) {
-            return bcryptjs.compare(password, user.password).then(passwordCompare => {                if (!passwordCompare) {
+        if (!user) {
+            const error = new Error("Invalid User login details")
+            error.statusCode = 422;
+            return next(error)
+        }
+
+        return bcryptjs.compare(password, user.password)
+            .then(passwordCompare => {
+                if (!passwordCompare) {
                     const error = new Error("Invalid User login details entered")
                     error.statusCode = 422;
-                    console.log(error)
                     throw error
                 }
                 const token = jwt.sign({
@@ -59,34 +64,52 @@ exports.userLogin = (req, res, next) => {
                     userId: user._id.toString()
                 },
                     "Mysecretloginsecret",
-                {
-                    expiresIn: "1h"
-                })
+                    {
+                        expiresIn: "1h"
+                    })
                 res.status(200).json({
                     message: "Login successful",
                     token: token,
-                    user: {
-                        username: user.username,
-                        _id: user._id,
-                        fullname: user.fullname,
-                        createdAt: user.createdAt,
-                    }
+                    user: {...user._doc, password: null}
                 })
             }).catch(err => {
                 next(err)
+            }).catch(err => {
+                next()
             })
-        }
 
-        else {
-            const error = new Error("Invalid User login details entered")
-            error.statusCode = 422;
-            console.log(error)
-            throw error
-        }
+
     }).catch(err => {
         if (!err.statusCode) {
             err.statusCode = 422
             next(err)
         }
     })
+};
+
+exports.getUser = async (req, res, next) => {
+    const userId = req.params.userId
+    try {
+        if (!userId) {
+            const error = new Error("Unauthorized access");
+            error.statusCode = 401;
+            throw error
+        };
+        const user = await User.findById(userId).populate("enquiries").populate("posts");
+        if (!user) {
+            const error = new Error("Unauthorized access");
+            error.statusCode = 401;
+            throw error
+        }
+        res.status(200).json({
+            ...user._doc, password: null
+        })
+    } catch (err) {
+        if (!err.statusCode) {
+            err.statusCode = 401
+        }
+    }
+
+
+
 }

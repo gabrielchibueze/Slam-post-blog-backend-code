@@ -25,6 +25,6 @@ router.patch("/status", isAuth, [
 ],
     postsController.statusUpdate
 );
-
-
+router.put("/likes", isAuth, postsController.likePost)
+router.put("/follow", isAuth, postsController.followUser)
 module.exports = router

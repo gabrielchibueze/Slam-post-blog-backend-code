@@ -10,7 +10,6 @@ exports.getPosts = async (req, res, next) => {
     const itemsPerPage = +req.query.limit;
     const pageNumber = +req.query.page || 1;
     let skipAmount = itemsPerPage * (pageNumber - 1);
-
     try {
         const posts = await Post.find()
             .sort({ createdAt: -1 })
@@ -49,7 +48,6 @@ exports.createPost = async (req, res, next) => {
         return next(error)
     }
 
-    // let currentUser;
     try {
         const currentUser = await User.findOne({ _id: req.userId })
         if (!currentUser) {
@@ -103,7 +101,6 @@ exports.getSinglePost = async (req, res, next) => {
             error.statusCode = 500
             throw error
         }
-
         res.status(200).json({
             message: "fectching of post details was successful",
             post: post
@@ -164,7 +161,6 @@ exports.editPost = async (req, res, next) => {
     const title = req.body.title;
     const content = req.body.content
     let imageUrl = req.file?.path.replace("\\", "/") || null
-    console.log(req.body.image)
 
     const validationError = validationResult(req);
     if (!validationError.isEmpty()) {
@@ -199,8 +195,8 @@ exports.editPost = async (req, res, next) => {
     catch (err) {
         if (!err.statusCode) {
             err.statusCode = 422
-            next(err)
         }
+        next(err)
     }
 }
 
@@ -214,12 +210,12 @@ exports.statusUpdate = async (req, res, next) => {
             error.statusCode = 403
             return next(error)
         }
-        user.userStatus = statusUpdate;
+        user.status = statusUpdate;
         const savedUserStatus = await user.save()
 
         res.status(201).json({
             message: "status update was successful",
-            userStatus: savedUserStatus.userStatus
+            status: savedUserStatus.status
         })
     }
     catch (err) {
@@ -228,4 +224,121 @@ exports.statusUpdate = async (req, res, next) => {
         }
         next(err)
     }
+}
+
+exports.likePost = async (req, res, next) => {
+    const postId = req.body.postId;
+    const userId = req.body.userId;
+    const postLike = req.body.postLike;
+    let thisUser;
+    let thisPost;
+    Post.findById(postId)
+        .then(post => {
+            if (!post) {
+                const error = new Error("Post not found. post is has either been removed or confined.")
+                error.statusCode = 401
+                return next(error)
+            }
+            thisPost = post
+            if (postLike === "1") {
+                post.likes.unshift(userId)
+            }
+            if (postLike === "-1") {
+                post.likes.pop(userId)
+            }
+            return post.save()
+        }).then(async (result) => {
+            return User.findById(userId)
+                .then(user => {
+                    if (!user) {
+                        const error = new Error("Unauthorized access. User must be signed in")
+                        error.statusCode = 403
+                        return next(error)
+                    }
+                    thisUser = user
+                    if (postLike === "1") {
+                        user.likedPosts.unshift(postId)
+                    }
+                    if (postLike === "-1") {
+                        user.likedPosts.pop(postId)
+                    }
+                    return user.save()
+                })
+                .catch(err => {
+                    if (!err.statusCode) {
+                        err.statusCode = 403
+                    }
+                    next(err)
+                })
+
+        }).then(result => {
+            if (!thisPost || !thisUser) {
+                const error = new Error("unable to complete like operation")
+                error.statusCode = 401
+                return next(error)
+            }
+            const postCreatorId = thisPost.creator._id.toString()
+            return User.findById(postCreatorId)
+                .then(user => {
+                    if (!user) {
+                        const error = new Error("unable to complete like operation")
+                        error.statusCode = 401
+                        return next(error)
+                    }
+                    if (postLike === "1") {
+                        user.likes.unshift(postId)
+                    }
+                    if (postLike === "-1") {
+                        user.likes.pop(postId)
+                    }
+                    return user.save()
+                })
+        }).catch(err => {
+            if (!err.statusCode) {
+                err.statusCode = 403
+            }
+            next(err)
+        })
+}
+
+exports.followUser = async (req, res, next) => {
+    const currentUserId = req.body.userId;
+    const followedUserId = req.body.followedUserId;
+    const followOrUnfollow = req.body.followOrUnfollow
+
+    try {
+        const currentUser = await User.findById(currentUserId)
+        const followedUser = await User.findById(followedUserId)
+        if (!currentUser || !followedUser) {
+            const error = new Error("user not found. An error occured.")
+            error.statusCode = 500
+            return next(error)
+        }
+        if (followOrUnfollow === "follow") {        
+            currentUser.following.unshift(followedUserId)
+            followedUser.followers.unshift(currentUserId)
+        }
+        if (followOrUnfollow === "unfollow") {
+            currentUser.following.pop(followedUserId)
+            followedUser.followers.pop(currentUserId)
+        }
+        const savedCurrentUser = await currentUser.save()
+        const savedfollowedUser = await followedUser.save()
+
+        if (!savedCurrentUser || !savedfollowedUser) {
+            const error = new Error("An completing the 'follow' operation.")
+            error.statusCode = 500
+            return next(error)
+        }
+        res.status(201).json({
+            message: followOrUnfollow + " user was successful",
+            ok: true
+        })
+    } catch (err) {
+        if (!err.statusCode) {
+            err.statusCode = 500
+        }
+        next(err)
+    }
+
 }

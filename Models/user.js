@@ -18,13 +18,43 @@ const userSchema = new Schema({
         type: String,
         required: true
     },
-    userStatus: {
+    status: {
         type: String,
     },
     posts: [
         {
             type: Schema.Types.ObjectId,
             ref: "Post",
+        }
+    ],
+    likedPosts: [
+        {
+            type: Schema.Types.ObjectId,
+            ref: "Post"
+        }
+    ],
+    likes: [
+        {
+            type: Schema.Types.ObjectId,
+            ref: "Post"
+        }
+    ],
+    following: [
+        {
+            type: Schema.Types.ObjectId,
+            ref: "User"
+        }
+    ],
+    enquiries: [
+        {
+            type: Schema.Types.ObjectId,
+            ref: "Enquiry"
+        }
+    ],
+    followers: [
+        {
+            type: Schema.Types.ObjectId,
+            ref: "User"
         }
     ]
 }, { timestamps: true })

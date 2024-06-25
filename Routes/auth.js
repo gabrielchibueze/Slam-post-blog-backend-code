@@ -26,18 +26,20 @@ router.put("/signup",
 router.put("/login",
     [
         body("email").isEmail().trim().withMessage("Please enter a valid email address")
-            .custom((value, { req }) => {
-                return User.findOne({ email: value }).then(userDoc => {
-                    if (!userDoc) {
-                        return Promise.reject("user account doest not exist, please sign in with correct email address")
-                    }
-                })
-            }).normalizeEmail(),
+            // .custom((value, { req }) => {
+            //     return User.findOne({ email: value }).then(userDoc => {
+            //         if (!userDoc) {
+            //             const error = new Error("user account doest not exist, please sign in with correct email address")
+            //             throw error
+            //         }
+            //     })
+            // }).normalizeEmail()
+            ,
 
         body("password").trim().isLength({ min: 6, max: 12 }).withMessage("password should be a min. of 6 and max of 12 characters"),
 
     ],
     authController.userLogin);
 
-
+router.get("/:userId", authController.getUser)
 module.exports = router
