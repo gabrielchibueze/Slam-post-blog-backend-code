@@ -43,10 +43,11 @@ const fileFilter = (req, file, cb) => {
 };
 
 const corsOptions = {
-    origin: 'https://slammedit.netlify.app/',
+    origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
-    credentials: true // Allow credentials to be sent in the request
+    // credentials: true 
+    // Allow credentials to be sent in the request
 };
 
 const accessLogStreams = fs.createWriteStream(path.join(__dirname, "access.log"), { flags: "a" })
