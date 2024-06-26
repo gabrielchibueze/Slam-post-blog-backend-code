@@ -6,7 +6,7 @@ module.exports = {
     init: (httpServer) => {
         io = new Server(httpServer, {
             cors: {
-                origin: "https://slammedit.netlify.app/",
+                origin: "https://slammedit.netlify.app",
                 methods: ["GET", "POST"]
             }
         })
