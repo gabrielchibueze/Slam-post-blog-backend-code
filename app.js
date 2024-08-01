@@ -15,6 +15,9 @@ const bodyParser = require("body-parser");
 const postsRouter = require("./Routes/posts");
 const authRouter = require("./Routes/auth");
 const enquiryRouter = require("./Routes/enquiry")
+const User = require("./Models/user")
+const bcryptjs = require("bcryptjs")
+const jwt = require("jsonwebtoken")
 
 const fileStorage = multer.diskStorage({
     destination: (req, file, cb) => {
@@ -46,7 +49,7 @@ const corsOptions = {
     origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
-    // credentials: true // Allow credentials to be sent in the request
+    // credentials: true
 };
 
 const accessLogStreams = fs.createWriteStream(path.join(__dirname, "access.log"), { flags: "a" })
@@ -65,19 +68,65 @@ app.use(cors(corsOptions))
 //     }
 //     next();
 // })
+
 app.use(cookieParser())
 app.use(bodyParser.json())
+
 app.use(multer({ storage: fileStorage, fileFilter: fileFilter }).single("image"))
-app.use(csrfProtection)
+// app.use(csrfProtection)
+
+// app.put("/login", (req, res, next) => {
+//     const password = req.body.password;
+//     const email = req.body.email;
+//     User.findOne({ email: email }).then(user => {
+//         if (!user) {
+//             const error = new Error("Invalid User login details")
+//             error.statusCode = 422;
+//             return next(error)
+//         }
+
+//         return bcryptjs
+//             .compare(password, user.password)
+//             .then(passwordCompare => {
+//                 if (!passwordCompare) {
+//                     const error = new Error("Invalid User login details entered")
+//                     error.statusCode = 422;
+//                     throw error
+//                 }
+//                 const token = jwt.sign({
+//                     email: user.email,
+//                     userId: user._id.toString()
+//                 },
+//                     "Mysecretloginsecret",
+//                     {
+//                         expiresIn: "1h"
+//                     })
+//                 res.status(200).json({
+//                     message: "Login successful",
+//                     token: token,
+//                     user: { ...user._doc, password: null }
+//                 })
+//             }).catch(err => {
+//                 next(err)
+//             }).catch(err => {
+//                 next()
+//             })
 
 
+//     }).catch(err => {
+//         if (!err.statusCode) {
+//             err.statusCode = 422
+//             next(err)
+//         }
+//     })
+// })
 app.use("/auth", authRouter);
 app.use("/feeds", postsRouter);
 app.use(enquiryRouter)
 app.use("/images", express.static(path.join(__dirname, "images")));
-app.get('/slam/csrf-token', (req, res) => {
-    res.json({ csrfToken: req.csrfToken() });
-});
+// app.get('/slam/csrf-token', (req, res) => {
+//     res.json({ csrfToken: req.csrfToken() });
+// });
 app.use((error, req, res, next) => {
     const status = error.statusCode || 500;
     const message = error.message;
@@ -93,5 +142,5 @@ mongoose.connect(process.env.MONGODB_URI)
         io.on("connection", socket => {
             // console.log("connected")
         })
-    }).catch(err => console.log)
+    }).catch(err => console.log(err))
 

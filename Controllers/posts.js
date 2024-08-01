@@ -1,9 +1,12 @@
+require("dotenv").config({ path: "../uri.env" })
 const express = require("express");
 const Post = require("../Models/posts");
 const { validationResult } = require("express-validator");
 const fileHelper = require("../utils/fileHelper");
 const User = require("../Models/user");
 const io = require("../websocket")
+const cloudinary = require('cloudinary').v2;
+
 
 exports.getPosts = async (req, res, next) => {
 
@@ -36,14 +39,16 @@ exports.getPosts = async (req, res, next) => {
 }
 exports.createPost = async (req, res, next) => {
     const validationError = validationResult(req)
+    const imageDataURI = req.body.image
+    let imageFile;
     if (!validationError.isEmpty()) {
         const message = "Invalid Data input, check and try again";
         const error = new Error(message);
         error.statusCode = 422;
         return next(error);
     }
-    if (!req.file) {
-        const error = new Error("No image file attach, please attatch the right image format (PNG, JPEG, JPG")
+    if (!imageDataURI) {
+        const error = new Error("No image file attached, please attatch the right image format (PNG, JPEG, JPG")
         error.statusCode = 422
         return next(error)
     }
@@ -56,32 +61,72 @@ exports.createPost = async (req, res, next) => {
             throw error
         }
 
-        const postBody = {
-            title: req.body.title,
-            content: req.body.content,
-            creator: {
-                username: currentUser.username,
-                _id: req.userId
-            },
-            imageUrl: req.file.path.replace("\\", "/"),
-        };
+        (async function () {
 
-        const post = new Post(postBody);
-        const savedPost = await post.save();
-        io.getIO().emit("posts", {
-            action: "create",
-            post: savedPost,
-            user: post.creator
-        })
-        if (savedPost) {
-            res.status(201).json({
-                message: "Post has been created successfully",
-                post: savedPost
+            // Configuration
+            cloudinary.config({
+                cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+                api_key: process.env.CLOUDINARY_API_KEY,
+                api_secret: process.env.CLOUDINARY_API_SECRET
+            });
+
+            // Upload an image
+            const uploadResult = await cloudinary.uploader
+                .upload(imageDataURI, {
+                    public_id: 'slampost-'+ Date.now(),
+                    folder: "slam-post-blog"
+                }).catch((error) => {
+                    console.log(error);
+                });
+
+            // console.log(uploadResult);
+            imageFile = uploadResult.secure_url
+            const postBody = {
+                title: req.body.title,
+                content: req.body.content,
+                creator: {
+                    username: currentUser.username,
+                    _id: req.userId
+                },
+                imageUrl: imageFile,
+            };
+
+            console.log(postBody)
+            const post = new Post(postBody);
+            const savedPost = await post.save();
+            io.getIO().emit("posts", {
+                action: "create",
+                post: savedPost,
+                user: post.creator
             })
-        }
+            if (savedPost) {
+                res.status(201).json({
+                    message: "Post has been created successfully",
+                    post: savedPost
+                })
+            }
 
-        currentUser.posts.push({ _id: savedPost._id })
-        currentUser.save()
+            currentUser.posts.push({ _id: savedPost._id })
+            currentUser.save()
+
+            // Optimize delivery by resizing and applying auto-format and auto-quality
+            // const optimizeUrl = cloudinary.url('slamposts', {
+            //     fetch_format: 'auto',
+            //     quality: 'auto'
+            // });
+
+            // console.log(optimizeUrl);
+
+            // Transform the image: auto-crop to square aspect_ratio
+            // const autoCropUrl = cloudinary.url('slamposts', {
+            //     crop: 'auto',
+            //     gravity: 'auto',
+            //     width: 500,
+            //     height: 500,
+            // });
+            // console.log(autoCropUrl);
+        })();
+
 
     }
     catch (err) {
@@ -314,7 +359,7 @@ exports.followUser = async (req, res, next) => {
             error.statusCode = 500
             return next(error)
         }
-        if (followOrUnfollow === "follow") {        
+        if (followOrUnfollow === "follow") {
             currentUser.following.unshift(followedUserId)
             followedUser.followers.unshift(currentUserId)
         }

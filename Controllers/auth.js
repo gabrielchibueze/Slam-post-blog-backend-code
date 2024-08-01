@@ -9,7 +9,6 @@ exports.createUser = (req, res, next) => {
     const email = req.body.email;
     const username = req.body.username;
     const password = req.body.password
-
     const validationError = validationResult(req)
     if (!validationError.isEmpty()) {
         const message = validationError.array()[0].msg
@@ -43,8 +42,7 @@ exports.createUser = (req, res, next) => {
 exports.userLogin = (req, res, next) => {
     const password = req.body.password;
     const email = req.body.email;
-    const hashedPassword = bcryptjs.hash(password, 12)
-
+    
     User.findOne({ email: email }).then(user => {
         if (!user) {
             const error = new Error("Invalid User login details")
@@ -70,7 +68,7 @@ exports.userLogin = (req, res, next) => {
                 res.status(200).json({
                     message: "Login successful",
                     token: token,
-                    user: {...user._doc, password: null}
+                    user: { ...user._doc, password: null }
                 })
             }).catch(err => {
                 next(err)

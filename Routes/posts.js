@@ -8,7 +8,7 @@ const { body } = require("express-validator")
 router.get("/posts", postsController.getPosts);
 router.post("/post", isAuth, [
     body("title").trim().isLength({ min: 5 }),
-    body("content").trim().isLength({ min: 7, max: 150 })
+    body("content").trim().isLength({ min: 7})
 ], postsController.createPost)
 
 router.get("/posts/:postId", postsController.getSinglePost);
