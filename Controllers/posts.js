@@ -1,4 +1,4 @@
-require("dotenv").config({ path: "../uri.env" })
+require("dotenv").config()
 const express = require("express");
 const Post = require("../Models/posts");
 const { validationResult } = require("express-validator");
@@ -41,6 +41,7 @@ exports.createPost = async (req, res, next) => {
     const validationError = validationResult(req)
     const imageDataURI = req.body.image
     let imageFile;
+    console.log(req.body)
     if (!validationError.isEmpty()) {
         const message = "Invalid Data input, check and try again";
         const error = new Error(message);
@@ -73,7 +74,7 @@ exports.createPost = async (req, res, next) => {
             // Upload an image
             const uploadResult = await cloudinary.uploader
                 .upload(imageDataURI, {
-                    public_id: 'slampost-'+ Date.now(),
+                    public_id: 'slampost-' + Date.now(),
                     folder: "slam-post-blog"
                 }).catch((error) => {
                     console.log(error);
@@ -205,7 +206,9 @@ exports.editPost = async (req, res, next) => {
     const postId = req.params.postId
     const title = req.body.title;
     const content = req.body.content
-    let imageUrl = req.file?.path.replace("\\", "/") || null
+    const imageDataURI = req.body.image
+    const oldImagePath = req.body.oldimage
+    let imageFile;
 
     const validationError = validationResult(req);
     if (!validationError.isEmpty()) {
@@ -213,19 +216,54 @@ exports.editPost = async (req, res, next) => {
         error.statusCode = 422;
         return next(error)
     }
-    if (!imageUrl && !req.body.image) {
-        const error = new Error("No image file attached.")
-        error.statusCode = 422
-        return next(error)
-    }
     try {
+        const currentUser = await User.findOne({ _id: req.userId })
+        if (!currentUser) {
+            const error = new Error("Invalid authorization token. Access denied")
+            error.statusCode = 402;
+            return next(error)
+        }
         const post = await Post.findById(postId)
+        if (!post) {
+            const error = new Error("Error occured fecthing post data");
+            error.statusCode = 500
+            return next(error);
+        }
+        console.log("here")
+        if (imageDataURI && imageDataURI.length > 5) {
+            console.log("am here now")
+            cloudinary.config({
+                cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+                api_key: process.env.CLOUDINARY_API_KEY,
+                api_secret: process.env.CLOUDINARY_API_SECRET
+            });
+
+            // Upload an image
+            const uploadResult = await cloudinary.uploader
+                .upload(imageDataURI, {
+                    public_id: 'slampost-' + Date.now(),
+                    folder: "slam-post-blog"
+                }).catch((err) => {
+                    return next(err);
+                });
+            console.log(uploadResult.secure_url)
+            const imagePath = oldImagePath.split("/slam-post-blog/")[1].split(".")[0]
+            console.log(imagePath)
+            await cloudinary.uploader.destroy("slam-post-blog/" + imagePath).then(result => {
+                console.log(result)
+            }).catch(err => console.log(err))
+
+            // console.log(uploadResult);
+            imageFile = uploadResult.secure_url
+
+        } else if (oldImagePath && oldImagePath.includes("http")) {
+            imageFile = oldImagePath
+        }
+        console.log(imageFile)
         post.title = title;
         post.content = content;
-        if (imageUrl) {
-            fileHelper.deleteFIle(post.imageUrl)
-            post.imageUrl = imageUrl
-        }
+        post.imageUrl = imageFile
+
         const savedPost = await post.save()
         io.getIO().emit("posts", {
             action: "update",
@@ -236,8 +274,9 @@ exports.editPost = async (req, res, next) => {
             message: "Post successfully upated",
             post: savedPost
         })
-    }
-    catch (err) {
+
+
+    } catch (err) {
         if (!err.statusCode) {
             err.statusCode = 422
         }

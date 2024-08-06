@@ -1,4 +1,4 @@
-require("dotenv").config({ path: "./uri.env" })
+require("dotenv").config()
 const express = require("express");
 const mongoose = require("mongoose")
 const app = express()
@@ -56,7 +56,7 @@ const accessLogStreams = fs.createWriteStream(path.join(__dirname, "access.log")
 
 app.use(helmet());
 app.use(compression())
-app.use(morgan("combined", { stream: accessLogStreams }))
+// app.use(morgan("combined", { stream: accessLogStreams }))
 
 app.use(cors(corsOptions))
 // app.use((req, res, next) => {
@@ -124,9 +124,9 @@ app.use("/auth", authRouter);
 app.use("/feeds", postsRouter);
 app.use(enquiryRouter)
 app.use("/images", express.static(path.join(__dirname, "images")));
-// app.get('/slam/csrf-token', (req, res) => {
-//     res.json({ csrfToken: req.csrfToken() });
-// });
+app.get('/slam/csrf-token', (req, res) => {
+    res.json({ csrfToken: req.csrfToken() });
+});
 app.use((error, req, res, next) => {
     const status = error.statusCode || 500;
     const message = error.message;
