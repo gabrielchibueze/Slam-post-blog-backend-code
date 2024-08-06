@@ -7,11 +7,11 @@ const router = express.Router();
 
 
 router.put("/enquiry", async (req, res, next) => {
-    const email = req.body.email;
+    const email = req.body.emailaddress;
     const name = req.body.name;
     const enquiry = req.body.enquiry
     const userId = req.body?.userId || null
-
+    console.log(email + name + enquiry)
     try {
         let memberId;
         let memberUsername;
@@ -39,7 +39,8 @@ router.put("/enquiry", async (req, res, next) => {
             error.statusCode = 500;
             throw error
         }
-        if(user){
+        console.log(newEnquiry)
+        if (user) {
             user.enquiries.unshift(newEnquiry._id)
             user.save()
         }
